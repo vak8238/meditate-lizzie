@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meditation Lizzie">
+<title>Meditation Lizzie</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green: #4a9e4a;
+    --green-dark: #2e6e2e;
+    --green-light: #d4edda;
+    --blue: #2f80ed;
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-muted: #777;
+    --border: rgba(0,0,0,0.10);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111;
+      --surface: #1c1c1e;
+      --text: #f0f0f0;
+      --text-muted: #888;
+      --border: rgba(255,255,255,0.10);
+      --green-light: #1a3a1a;
+    }
+  }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    padding-top: calc(var(--safe-top) + 12px);
+    padding-bottom: var(--safe-bottom);
+  }
+  .header {
+    padding: 0 16px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .streak { font-size: 13px; color: var(--text-muted); }
+  .toggle-wrap { padding: 0 16px 10px; flex-shrink: 0; }
+  .toggle {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    gap: 2px;
+    padding: 2px;
+  }
+  .toggle-btn {
+    padding: 6px 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border-radius: 7px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .toggle-btn.active { background: var(--green); color: #fff; }
+  .toggle-btn.empty { opacity: 0.25; cursor: default; }
+  .track-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .grid-wrap {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 16px 12px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+  }
+  .bubble {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    transition: transform 0.12s, background 0.25s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .bubble:active { transform: scale(0.88); }
+  .bubble.today { border: 2px solid var(--blue); }
+  .bubble.done { background: var(--green); border-color: var(--green-dark); }
+  .bubble .day-num {
+    font-size: clamp(10px, 3vw, 13px);
+    font-weight: 500;
+    color: var(--text-muted);
+    line-height: 1;
+  }
+  .bubble.done .day-num { color: #fff; }
+  .bubble.today:not(.done) .day-num { color: var(--blue); }
+  .bubble .month-tag {
+    font-size: 8px;
+    color: var(--text-muted);
+    opacity: 0.7;
+    margin-top: 1px;
+  }
+  .bubble.done .month-tag { color: rgba(255,255,255,0.75); }
+  .player {
+    flex-shrink: 0;
+    background: var(--surface);
+    border-top: 0.5px solid var(--border);
+    padding: 14px 20px calc(16px + var(--safe-bottom));
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .player.visible { transform: translateY(0); }
+  .player-row1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .player-date { font-size: 14px; font-weight: 500; }
+  .player-track { font-size: 12px; color: var(--text-muted); }
+  .player-row2 { display: flex; align-items: center; gap: 14px; }
+  .stop-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stop-btn svg { fill: var(--text-muted); }
+  .progress-wrap { flex: 1; }
+  .progress-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 2px; width: 0%; transition: width 1s linear; }
+  .time-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; justify-content: space-between; }
+  .done-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1.5px solid var(--green);
+    background: transparent;
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .done-btn.undo { border-color: var(--text-muted); color: var(--text-muted); }
+  .done-btn:active { opacity: 0.7; }
+  .admin-toggle {
+    position: fixed;
+    bottom: calc(20px + var(--safe-bottom));
+    right: 16px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 0.5px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    opacity: 0.4;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 100;
+  }
+  .admin-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    align-items: flex-end;
+  }
+  .admin-panel.visible { display: flex; }
+  .admin-inner {
+    background: var(--surface);
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(20px + var(--safe-bottom));
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .admin-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .track-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .track-letter {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--green);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .track-letter.empty-slot { background: var(--border); color: var(--text-muted); }
+  .track-name-input {
+    flex: 1;
+    font-size: 13px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    outline: none;
+    padding: 0;
+  }
+  .upload-btn {
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 0.5px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .upload-btn.uploading { opacity: 0.5; }
+  .admin-close {
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 0.5px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="streak" id="streak-label">0 done</div>
+</div>
+
+<div class="toggle-wrap">
+  <div class="toggle" id="toggle"></div>
+  <div class="track-label" id="track-label"></div>
+</div>
+
+<div class="grid-wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="player" id="player">
+  <div class="player-row1">
+    <div class="player-date" id="player-date">Today</div>
+    <div class="player-track" id="player-track"></div>
+  </div>
+  <div class="player-row2">
+    <button class="stop-btn" onclick="stopPlay()">
+      <svg viewBox="0 0 24 24" width="16" height="16"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+    </button>
+    <div class="progress-wrap">
+      <div class="progress-bg"><div class="progress-fill" id="prog"></div></div>
+      <div class="time-label"><span id="time-cur">0:00</span><span id="time-tot">0:00</span></div>
+    </div>
+    <button class="done-btn" id="done-btn" onclick="handleDoneBtn()">✓ Done</button>
+  </div>
+</div>
+
+<button class="admin-toggle" onclick="openAdmin()">⚙️</button>
+
+<div class="admin-panel" id="admin-panel" onclick="adminBgClick(event)">
+  <div class="admin-inner">
+    <div class="admin-title">Manage tracks</div>
+    <div id="track-rows"></div>
+    <button class="admin-close" onclick="closeAdmin()">Done</button>
+  </div>
+</div>
+
+<audio id="audio" preload="none"></audio>
+
+<script>
+const SUPABASE_URL = 'https://zymulpyuxxpqbtqxkrmu.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5bXVscHl1eHhwcWJ0cXhrcm11Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTg1NjAsImV4cCI6MjA5MTI3NDU2MH0.qdl9-l45Fv-prTECEXhUl8S5QeTA8qIJ6YuoRgEYJUc';
+const STORAGE_URL = `${SUPABASE_URL}/storage/v1/object/public/audio`;
+const COMPLETIONS_TABLE = 'completions_lizzie';
+const LETTERS = ['A','B','C','D','E','F','G','H','I','J'];
+
+let tracks = {
+  A: { label: 'The Call From Within — Mooji', url: `${STORAGE_URL}/A.mp3` },
+  B: { label: 'Head to Heart — Guided', url: `${STORAGE_URL}/B.mp3` },
+  C: { label: "Don't Identify — Mooji", url: `${STORAGE_URL}/C.mp3` },
+  D: { label: 'The Quiet Immensity Within — Adya', url: `${STORAGE_URL}/D.mp3` },
+  E: { label: '478 Breathing Exercise 10 Minutes', url: `${STORAGE_URL}/E.mp3` },
+  F: null, G: null, H: null, I: null, J: null
+};
+
+let currentTrack = 'A';
+let activeDateStr = null;
+let activeDateObj = null;
+let timerInterval = null;
+let done = [];
+
+const audio = document.getElementById('audio');
+const today = new Date(); today.setHours(0,0,0,0);
+
+function dateStr(d) { return d.toISOString().split('T')[0]; }
+function fmt(s) { s = Math.floor(s||0); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+
+async function sbFetch(path, opts={}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+      ...opts.headers
+    },
+    ...opts
+  });
+  return res;
+}
+
+async function loadDone() {
+  try {
+    const res = await sbFetch(`${COMPLETIONS_TABLE}?select=date`);
+    const data = await res.json();
+    done = data.map(r => r.date);
+    buildGrid();
+    document.getElementById('streak-label').textContent = done.length + ' done';
+  } catch(e) {
+    done = JSON.parse(localStorage.getItem('done_lizzie')||'[]');
+    buildGrid();
+  }
+}
+
+async function addDone(ds) {
+  done.push(ds);
+  localStorage.setItem('done_lizzie', JSON.stringify(done));
+  buildGrid();
+  document.getElementById('streak-label').textContent = done.length + ' done';
+  try {
+    await sbFetch(COMPLETIONS_TABLE, { method: 'POST', body: JSON.stringify({ date: ds }) });
+  } catch(e) {}
+}
+
+async function removeDone(ds) {
+  done = done.filter(d => d !== ds);
+  localStorage.setItem('done_lizzie', JSON.stringify(done));
+  buildGrid();
+  document.getElementById('streak-label').textContent = done.length + ' done';
+  try {
+    await sbFetch(`${COMPLETIONS_TABLE}?date=eq.${ds}`, { method: 'DELETE' });
+  } catch(e) {}
+}
+
+function buildToggle() {
+  const tog = document.getElementById('toggle');
+  tog.innerHTML = '';
+  LETTERS.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'toggle-btn' + (k === currentTrack ? ' active' : '') + (!tracks[k] ? ' empty' : '');
+    btn.id = 'btn-' + k;
+    btn.textContent = k;
+    if (tracks[k]) btn.onclick = () => selectTrack(k);
+    tog.appendChild(btn);
+  });
+  updateTrackLabel();
+}
+
+function selectTrack(t) {
+  if (!tracks[t]) return;
+  currentTrack = t;
+  LETTERS.forEach(k => {
+    const b = document.getElementById('btn-' + k);
+    if (b) b.classList.toggle('active', k === t);
+  });
+  updateTrackLabel();
+}
+
+function updateTrackLabel() {
+  document.getElementById('track-label').textContent = tracks[currentTrack] ? tracks[currentTrack].label : '';
+}
+
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  const todayStr = dateStr(today);
+  grid.innerHTML = '';
+  for (let i = 0; i < 100; i++) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    const ds = dateStr(d);
+    const el = document.createElement('div');
+    el.className = 'bubble' + (done.includes(ds) ? ' done' : '') + (ds === todayStr ? ' today' : '');
+    const num = document.createElement('div');
+    num.className = 'day-num';
+    num.textContent = d.getDate();
+    el.appendChild(num);
+    if (i === 0 || d.getDate() === 1) {
+      const mo = document.createElement('div');
+      mo.className = 'month-tag';
+      mo.textContent = d.toLocaleString('default', {month: 'short'});
+      el.appendChild(mo);
+    }
+    el.addEventListener('click', () => openDay(ds, d));
+    grid.appendChild(el);
+  }
+}
+
+function openDay(ds, d) {
+  if (!tracks[currentTrack]) return;
+  activeDateStr = ds;
+  activeDateObj = d;
+  clearInterval(timerInterval);
+  const isDone = done.includes(ds);
+  const doneBtn = document.getElementById('done-btn');
+  doneBtn.textContent = isDone ? '↩ Undo' : '✓ Done';
+  doneBtn.classList.toggle('undo', isDone);
+  audio.src = tracks[currentTrack].url;
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+  const opts = {weekday: 'short', month: 'short', day: 'numeric'};
+  document.getElementById('player-date').textContent = d.toLocaleDateString(undefined, opts);
+  document.getElementById('player-track').textContent = 'Track ' + currentTrack + ' — ' + tracks[currentTrack].label;
+  document.getElementById('player').classList.add('visible');
+  document.getElementById('prog').style.transition = 'none';
+  document.getElementById('prog').style.width = '0%';
+  updateProgress();
+  timerInterval = setInterval(updateProgress, 1000);
+}
+
+function updateProgress() {
+  const dur = audio.duration || 0;
+  const cur = audio.currentTime || 0;
+  const pct = dur > 0 ? (cur / dur) * 100 : 0;
+  document.getElementById('prog').style.transition = 'width 1s linear';
+  document.getElementById('prog').style.width = pct + '%';
+  document.getElementById('time-cur').textContent = fmt(cur);
+  document.getElementById('time-tot').textContent = fmt(dur);
+}
+
+function stopPlay() {
+  audio.pause();
+  audio.currentTime = 0;
+  clearInterval(timerInterval);
+  document.getElementById('player').classList.remove('visible');
+  activeDateStr = null;
+}
+
+async function handleDoneBtn() {
+  if (!activeDateStr) return;
+  const isDone = done.includes(activeDateStr);
+  if (isDone) {
+    await removeDone(activeDateStr);
+  } else {
+    await addDone(activeDateStr);
+  }
+  stopPlay();
+}
+
+audio.addEventListener('ended', async () => {
+  clearInterval(timerInterval);
+  document.getElementById('prog').style.width = '100%';
+  if (activeDateStr && !done.includes(activeDateStr)) {
+    await addDone(activeDateStr);
+  }
+  setTimeout(() => stopPlay(), 800);
+});
+
+function openAdmin() {
+  buildTrackRows();
+  document.getElementById('admin-panel').classList.add('visible');
+}
+function closeAdmin() {
+  document.getElementById('admin-panel').classList.remove('visible');
+  buildToggle();
+}
+function adminBgClick(e) {
+  if (e.target === document.getElementById('admin-panel')) closeAdmin();
+}
+
+function buildTrackRows() {
+  const container = document.getElementById('track-rows');
+  container.innerHTML = '';
+  LETTERS.forEach(k => {
+    const row = document.createElement('div');
+    row.className = 'track-row';
+    const letter = document.createElement('div');
+    letter.className = 'track-letter' + (tracks[k] ? '' : ' empty-slot');
+    letter.textContent = k;
+    const nameInput = document.createElement('input');
+    nameInput.className = 'track-name-input';
+    nameInput.type = 'text';
+    nameInput.placeholder = 'Track name...';
+    nameInput.value = tracks[k] ? tracks[k].label : '';
+    nameInput.addEventListener('change', () => {
+      if (tracks[k]) tracks[k].label = nameInput.value;
+    });
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'audio/*';
+    fileInput.id = 'file-' + k;
+    const uploadBtn = document.createElement('button');
+    uploadBtn.className = 'upload-btn';
+    uploadBtn.textContent = tracks[k] ? 'Replace' : 'Upload';
+    uploadBtn.onclick = () => fileInput.click();
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      uploadBtn.textContent = '...';
+      uploadBtn.classList.add('uploading');
+      try {
+        const res = await fetch(`${SUPABASE_URL}/storage/v1/object/audio/${k}.mp3`, {
+          method: tracks[k] ? 'PUT' : 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'apikey': SUPABASE_KEY,
+            'Content-Type': 'audio/mpeg',
+            'x-upsert': 'true'
+          },
+          body: file
+        });
+        if (res.ok || res.status === 200 || res.status === 201) {
+          tracks[k] = {
+            label: nameInput.value || file.name.replace(/\.[^.]+$/, ''),
+            url: `${STORAGE_URL}/${k}.mp3?t=${Date.now()}`
+          };
+          if (!nameInput.value) nameInput.value = tracks[k].label;
+          letter.className = 'track-letter';
+          uploadBtn.textContent = 'Replace';
+        } else {
+          uploadBtn.textContent = 'Error';
+        }
+      } catch(e) {
+        uploadBtn.textContent = 'Error';
+      }
+      uploadBtn.classList.remove('uploading');
+    });
+    row.appendChild(letter);
+    row.appendChild(nameInput);
+    row.appendChild(fileInput);
+    row.appendChild(uploadBtn);
+    container.appendChild(row);
+  });
+}
+
+buildToggle();
+loadDone();
+</script>
+</body>
+</html>
